@@ -1,0 +1,121 @@
+import { LogLevel, WorkerMailer } from 'worker-mailer';
+import { recordNotification, type Entry, type Form } from './db';
+import { escapeHtml, isEmail } from './lib/http';
+
+export interface MailMessage {
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  replyTo?: string;
+}
+
+export function smtpConfigured(env: Env): boolean {
+  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+}
+
+/** Sends one email through the configured SMTP server (Gmail by default). */
+export async function sendMail(env: Env, message: MailMessage): Promise<void> {
+  const port = Number(env.SMTP_PORT || 465);
+  await WorkerMailer.send(
+    {
+      host: env.SMTP_HOST,
+      port,
+      // 465 is implicit TLS; 587 upgrades with STARTTLS.
+      secure: port === 465,
+      startTls: port !== 465,
+      credentials: { username: env.SMTP_USER, password: env.SMTP_PASS },
+      authType: ['plain', 'login'],
+      logLevel: LogLevel.ERROR,
+      socketTimeoutMs: 15_000,
+      responseTimeoutMs: 15_000,
+    },
+    {
+      // Gmail always sends as the signed-in account, so "from" is SMTP_USER.
+      from: { name: env.MAIL_FROM_NAME || 'Form Worker', email: env.SMTP_USER },
+      to: message.to,
+      reply: message.replyTo,
+      subject: message.subject.replace(/[\r\n]+/g, ' ').slice(0, 200),
+      text: message.text,
+      html: message.html,
+    },
+  );
+}
+
+const NAME_KEYS = ['fullName', 'full_name', 'name', 'firstName', 'first_name'];
+
+function submitterName(entry: Entry): string | undefined {
+  for (const key of NAME_KEYS) {
+    if (entry.data[key]) return entry.data[key].slice(0, 80);
+  }
+  return undefined;
+}
+
+/** The first field that looks like the submitter's email, used as Reply-To. */
+function submitterEmail(entry: Entry): string | undefined {
+  for (const [key, value] of Object.entries(entry.data)) {
+    if (/e-?mail/i.test(key) && isEmail(value)) return value;
+  }
+  return undefined;
+}
+
+export function buildNotification(form: Form, entry: Entry, adminUrl?: string): MailMessage {
+  const who = submitterName(entry);
+  const what = entry.meta.kind ? `new ${entry.meta.kind}` : 'new submission';
+  const subject = `${form.name}: ${what}${who ? ` from ${who}` : ''}`;
+
+  const fields = Object.entries(entry.data);
+  const details = Object.entries(entry.meta).filter(([key]) => key !== 'kind');
+  const received = new Date(entry.createdAt).toUTCString();
+
+  const text = [
+    `${form.name}: ${what}`,
+    `Received: ${received}`,
+    '',
+    ...fields.map(([key, value]) => `${key}: ${value}`),
+    '',
+    ...details.map(([key, value]) => `(${key}: ${value})`),
+    ...(adminUrl ? ['', `View in Form Worker: ${adminUrl}`] : []),
+  ].join('\n');
+
+  const row = (key: string, value: string) =>
+    `<tr><th align="left" valign="top" style="padding:6px 12px 6px 0;color:#555;font-weight:600;white-space:nowrap">${escapeHtml(key)}</th>` +
+    `<td style="padding:6px 0;white-space:pre-wrap">${escapeHtml(value)}</td></tr>`;
+
+  const html = `<!doctype html><html><body style="font:15px/1.5 system-ui,sans-serif;color:#15222a">
+<h2 style="font-size:18px;margin:0 0 4px">${escapeHtml(form.name)}: ${escapeHtml(what)}</h2>
+<p style="margin:0 0 16px;color:#555">Received ${escapeHtml(received)}</p>
+<table cellspacing="0" cellpadding="0" style="border-collapse:collapse">${fields.map(([k, v]) => row(k, v)).join('')}</table>
+${details.length ? `<p style="margin:16px 0 0;color:#777;font-size:13px">${details.map(([k, v]) => `${escapeHtml(k)}: ${escapeHtml(v)}`).join(' · ')}</p>` : ''}
+${adminUrl ? `<p style="margin:16px 0 0"><a href="${escapeHtml(adminUrl)}">View in Form Worker</a></p>` : ''}
+</body></html>`;
+
+  return { to: form.notifyEmails, subject, text, html, replyTo: submitterEmail(entry) };
+}
+
+/**
+ * Emails the form's notification list about an entry and records the outcome.
+ * Never throws: the entry is already stored, so a failed email is retried later
+ * by the scheduled job and shown as "failed" in the admin.
+ */
+export async function notifyEntry(env: Env, form: Form, entry: Entry, adminUrl?: string): Promise<Entry['notifyStatus']> {
+  if (form.notifyEmails.length === 0) {
+    await recordNotification(env.DB, entry.id, 'skipped', 'No notification addresses', false);
+    return 'skipped';
+  }
+  if (!smtpConfigured(env)) {
+    await recordNotification(env.DB, entry.id, 'skipped', 'SMTP is not configured', false);
+    return 'skipped';
+  }
+
+  try {
+    await sendMail(env, buildNotification(form, entry, adminUrl));
+    await recordNotification(env.DB, entry.id, 'sent', null, true);
+    return 'sent';
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({ event: 'notify_failed', form: form.id, entry: entry.id, error: message }));
+    await recordNotification(env.DB, entry.id, 'failed', message.slice(0, 500), true);
+    return 'failed';
+  }
+}

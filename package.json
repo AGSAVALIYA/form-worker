@@ -1,0 +1,76 @@
+{
+  "name": "form-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Free, self-hosted form backend for your websites on Cloudflare Workers: email notifications, built-in spam filtering and an admin dashboard. Built for freelancers and small agencies.",
+  "license": "MIT",
+  "author": "Akshit Savaliya",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AGSAVALIYA/form-worker.git"
+  },
+  "homepage": "https://github.com/AGSAVALIYA/form-worker#readme",
+  "bugs": {
+    "url": "https://github.com/AGSAVALIYA/form-worker/issues"
+  },
+  "type": "module",
+  "keywords": [
+    "cloudflare-workers",
+    "forms",
+    "form-backend",
+    "contact-form",
+    "d1",
+    "spam-filter",
+    "smtp",
+    "freelancers"
+  ],
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "types": "wrangler types",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jose": "^6.2.12",
+    "worker-mailer": "^1.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2",
+    "wrangler": "^4.141.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "SMTP_USER": {
+        "description": "SMTP username. For Gmail, the full address that will send notifications."
+      },
+      "SMTP_PASS": {
+        "description": "SMTP password. For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) (needs 2-Step Verification); your normal password will not work."
+      },
+      "ADMIN_PASSWORD": {
+        "description": "Password for the dashboard at `/admin` (any username). Use a long random value, e.g. from `openssl rand -base64 24`."
+      },
+      "SMTP_HOST": {
+        "description": "SMTP server. Keep `smtp.gmail.com` for Gmail."
+      },
+      "SMTP_PORT": {
+        "description": "`465` (TLS) or `587` (STARTTLS)."
+      },
+      "MAIL_FROM_NAME": {
+        "description": "Sender name shown on notification emails."
+      },
+      "ACCESS_TEAM_DOMAIN": {
+        "description": "Optional. Your Cloudflare Access team domain, e.g. `yourteam.cloudflareaccess.com`, to protect the dashboard with Access instead of a password."
+      },
+      "ACCESS_AUD": {
+        "description": "Optional. The AUD tag of the Cloudflare Access application protecting this Worker."
+      },
+      "DB": {
+        "description": "D1 database for forms and entries. Created automatically."
+      }
+    }
+  }
+}

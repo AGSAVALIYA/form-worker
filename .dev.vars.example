@@ -1,0 +1,15 @@
+# Secrets. Copy to .dev.vars for local development (never commit .dev.vars).
+# The Deploy to Cloudflare button asks for each uncommented value below.
+
+# SMTP login. For Gmail: the full address, and a 16-character App Password
+# (Google Account > Security > 2-Step Verification > App passwords).
+SMTP_USER="you@gmail.com"
+SMTP_PASS="abcd efgh ijkl mnop"
+
+# Dashboard password (any username). Ignored once Cloudflare Access is configured.
+ADMIN_PASSWORD="choose-a-long-random-password"
+
+# Optional: only if a form requires Cloudflare Turnstile. Set it with
+# `npx wrangler secret put TURNSTILE_SECRET_KEY`.
+# This test secret always passes; use your real secret in production.
+# TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"

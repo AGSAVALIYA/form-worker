@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "form-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-27",
+  // worker-mailer uses Node.js built-ins.
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Bundle the admin UI files as strings (imported in src/admin/index.ts).
+  "rules": [{ "type": "Text", "globs": ["**/*.html", "**/*.css", "**/*.client.js"], "fallthrough": true }],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "form-worker",
+      // Replace with the id printed by `npx wrangler d1 create form-worker`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Hourly: retry failed notifications and delete entries past each form's retention period.
+  "triggers": { "crons": ["17 * * * *"] },
+
+  // Secrets (see .dev.vars.example) are set with `npx wrangler secret put <NAME>`
+  // or by the Deploy to Cloudflare button: SMTP_USER, SMTP_PASS, ADMIN_PASSWORD
+  // and, optionally, TURNSTILE_SECRET_KEY.
+
+  // Non-secret settings.
+  "vars": {
+    "SMTP_HOST": "smtp.gmail.com",
+    "SMTP_PORT": "465",
+    "MAIL_FROM_NAME": "Form Worker",
+    // Cloudflare Access protection for /admin (recommended). Leave empty to use ADMIN_PASSWORD instead.
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  },
+
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}
