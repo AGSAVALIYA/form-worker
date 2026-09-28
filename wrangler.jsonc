@@ -19,6 +19,21 @@
     }
   ],
 
+  // Notification emails go through a queue, so each send runs in its own invocation with its
+  // own CPU budget instead of sharing the submission request's. The queue is created on deploy.
+  "queues": {
+    "producers": [{ "binding": "NOTIFY_QUEUE", "queue": "form-worker-notifications" }],
+    "consumers": [
+      {
+        "queue": "form-worker-notifications",
+        // One email per invocation: the free plan's CPU limit is per invocation.
+        "max_batch_size": 1,
+        "max_retries": 3,
+        "retry_delay": 60
+      }
+    ]
+  },
+
   // Hourly: retry failed notifications and delete entries past each form's retention period.
   "triggers": { "crons": ["17 * * * *"] },
 

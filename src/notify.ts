@@ -1,5 +1,5 @@
 import { LogLevel, WorkerMailer } from 'worker-mailer';
-import { recordNotification, type Entry, type Form } from './db';
+import { getEntry, getForm, recordNotification, type Entry, type Form } from './db';
 import { escapeHtml, isEmail } from './lib/http';
 
 export interface MailMessage {
@@ -117,5 +117,48 @@ export async function notifyEntry(env: Env, form: Form, entry: Entry, adminUrl?:
     console.error(JSON.stringify({ event: 'notify_failed', form: form.id, entry: entry.id, error: message }));
     await recordNotification(env.DB, entry.id, 'failed', message.slice(0, 500), true);
     return 'failed';
+  }
+}
+
+/** Body of a message on NOTIFY_QUEUE. The consumer reloads the entry, so only its id travels. */
+export interface NotifyMessage {
+  entryId: string;
+  adminUrl?: string;
+}
+
+/**
+ * Sends an entry's notification from the queue, so the SMTP work runs in its
+ * own invocation instead of the submission request's. Sends inline when there
+ * is nothing to send, when the queue is not bound (deploys from before it
+ * existed), or when the queue refuses the message.
+ */
+export async function scheduleNotification(env: Env, form: Form, entry: Entry, adminUrl?: string): Promise<void> {
+  if (env.NOTIFY_QUEUE && form.notifyEmails.length > 0 && smtpConfigured(env)) {
+    try {
+      await env.NOTIFY_QUEUE.send({ entryId: entry.id, adminUrl } satisfies NotifyMessage);
+      return;
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'queue_send_failed', entry: entry.id, error: String(error) }));
+    }
+  }
+  await notifyEntry(env, form, entry, adminUrl);
+}
+
+/**
+ * Queue consumer. Delivery is at least once, so an entry that is no longer
+ * pending or failed (already sent, deleted, or marked as spam) is skipped.
+ * A failed send is retried by the queue, then by the hourly job.
+ */
+export async function handleNotifyBatch(batch: MessageBatch<NotifyMessage>, env: Env): Promise<void> {
+  for (const message of batch.messages) {
+    const entry = await getEntry(env.DB, message.body.entryId);
+    const record = entry ? await getForm(env.DB, entry.formId) : null;
+    if (!entry || !record || entry.isSpam || (entry.notifyStatus !== 'pending' && entry.notifyStatus !== 'failed')) {
+      message.ack();
+      continue;
+    }
+    const status = await notifyEntry(env, record.form, entry, message.body.adminUrl);
+    if (status === 'failed') message.retry();
+    else message.ack();
   }
 }

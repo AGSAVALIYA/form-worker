@@ -16,7 +16,7 @@
 import { getForm, hasRecentDuplicate, insertEntry, now, type Entry, type Form } from './db';
 import { apiKeyMatches, sha256Hex } from './lib/crypto';
 import { escapeHtml, HttpError, json, readBodyLimited } from './lib/http';
-import { notifyEntry } from './notify';
+import { scheduleNotification } from './notify';
 import { classifySubmission } from './spam';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -190,7 +190,7 @@ export async function handleSubmission(request: Request, env: Env, ctx: Executio
     const duplicate = await hasRecentDuplicate(env.DB, form.id, contentHash);
     const verdict = classifySubmission(data, { threshold: form.spamThreshold, duplicate });
 
-    // 4. Store first, then notify in the background.
+    // 4. Store first, then queue the email so SMTP never runs in this request.
     const entry: Entry = {
       id: crypto.randomUUID(),
       formId: form.id,
@@ -208,7 +208,7 @@ export async function handleSubmission(request: Request, env: Env, ctx: Executio
     await insertEntry(env.DB, entry);
     if (!verdict.isSpam) {
       const adminUrl = `${new URL(request.url).origin}/admin#/forms/${encodeURIComponent(form.id)}`;
-      ctx.waitUntil(notifyEntry(env, form, entry, adminUrl));
+      ctx.waitUntil(scheduleNotification(env, form, entry, adminUrl));
     }
 
     if (wantsPage) {

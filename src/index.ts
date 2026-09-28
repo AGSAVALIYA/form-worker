@@ -1,6 +1,7 @@
 import { handleAdmin } from './admin';
 import { json } from './lib/http';
 import { runMaintenance } from './maintenance';
+import { handleNotifyBatch, type NotifyMessage } from './notify';
 import { handleSubmission } from './submit';
 
 const SUBMISSION_PATH = /^\/api\/forms\/([a-z0-9][a-z0-9-]{1,62})\/submissions\/?$/;
@@ -27,4 +28,8 @@ export default {
   async scheduled(_controller, env, ctx): Promise<void> {
     ctx.waitUntil(runMaintenance(env));
   },
-} satisfies ExportedHandler<Env>;
+
+  async queue(batch, env): Promise<void> {
+    await handleNotifyBatch(batch, env);
+  },
+} satisfies ExportedHandler<Env, NotifyMessage>;

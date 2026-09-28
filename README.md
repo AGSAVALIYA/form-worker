@@ -24,7 +24,7 @@ It also suits anyone moving a static site (Cloudflare Pages, GitHub Pages, Netli
 - **Filters spam** with rules that run inside the Worker, with no external service. Spam is kept, but not emailed, and each decision lists its reasons. You can mark entries as spam or not spam.
 - **Blocks bots and unknown sites** with a honeypot field, a per-form list of allowed websites, and optional Cloudflare Turnstile.
 - **Gives you a dashboard:** inbox and spam views, search, entry details, manual entries (for enquiries taken by phone), CSV export, and copy-paste setup snippets for each form.
-- **Delivers reliably:** each entry is saved before its email is sent, and failed emails are retried every hour.
+- **Delivers reliably:** each entry is saved before its email is sent. Emails go out through a Cloudflare Queue, which retries a failed send three more times a minute apart, and anything still failing is retried every hour.
 - **Deletes old data** automatically after each form's retention period.
 
 ## Screenshots
@@ -50,7 +50,7 @@ You need a Cloudflare account (free) and an SMTP login. For Gmail, that is your 
 
 ### Deploy with one click
 
-1. Click **Deploy to Cloudflare** above. Cloudflare copies this repository to your GitHub account, creates the D1 database, runs the migrations and deploys the Worker. Future pushes to your copy deploy automatically.
+1. Click **Deploy to Cloudflare** above. Cloudflare copies this repository to your GitHub account, creates the D1 database and the notification queue, runs the migrations and deploys the Worker. Future pushes to your copy deploy automatically.
 2. Fill in the three secrets it asks for: `SMTP_USER`, `SMTP_PASS` and `ADMIN_PASSWORD`.
 3. Open `https://form-worker.<your-subdomain>.workers.dev/admin` and sign in with any username and your `ADMIN_PASSWORD`.
 4. Create a form, add your email under **Settings**, and press **Send test email**.
@@ -66,7 +66,7 @@ npx wrangler d1 create form-worker        # put the printed database_id in wrang
 npx wrangler secret put SMTP_USER
 npx wrangler secret put SMTP_PASS
 npx wrangler secret put ADMIN_PASSWORD
-npm run deploy                            # applies migrations, then deploys
+npm run deploy                            # applies migrations, then deploys (the first deploy also creates the queue)
 ```
 
 ## Connect a website
@@ -169,9 +169,12 @@ Everything below is covered by Cloudflare's free plan.
 | Worker requests | 100,000 per day | 1 |
 | D1 rows written | 100,000 per day | about 2 |
 | D1 storage | 5 GB | a few KB |
+| Queue operations | 10,000 per day | about 3 per notification email |
 | Gmail sending | about 500 recipients per day on a personal account | 1 per notification address |
 
-Free Workers get 10 ms of CPU time per request. Waiting on the network (SMTP, the database) does not count toward it. If a send ever fails, including by hitting that limit, the entry is already saved and the hourly job retries the email. Your Worker's **Metrics** tab shows the real CPU time per request.
+Free Workers get 10 ms of CPU time per invocation. Waiting on the network (SMTP, the database) does not count toward it, but the TLS connection and SMTP exchange with Gmail do: an email costs roughly 10 ms on its own. That is why emails are not sent inside the submission request. The request saves the entry and puts a message on the queue (about 2 ms), and the queue sends the email in a separate invocation with its own budget. If a send fails or runs out of CPU, the queue retries it, and the hourly job is a second safety net. Your Worker's **Metrics** tab shows the CPU time per invocation.
+
+The queue allows about 3,000 emails a day, well above what a personal Gmail account can send.
 
 ## Status and limitations
 
@@ -212,10 +215,10 @@ npm run typecheck                 # also generates worker-configuration.d.ts
 
 ```
 src/
-  index.ts       routing and the hourly job (retries and retention)
+  index.ts       routing, the queue consumer and the hourly job (retries and retention)
   submit.ts      public submission endpoint
   spam.ts        spam scoring
-  notify.ts      notification emails (via worker-mailer)
+  notify.ts      notification emails (via worker-mailer) and the queue that sends them
   db.ts          D1 queries
   admin/         dashboard: auth, JSON API and UI (plain HTML, CSS and JS; no build step)
 migrations/      D1 schema

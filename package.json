@@ -64,6 +64,9 @@
       },
       "DB": {
         "description": "D1 database for forms and entries. Created automatically."
+      },
+      "NOTIFY_QUEUE": {
+        "description": "Queue that sends notification emails outside the submission request. Created automatically."
       }
     }
   }
