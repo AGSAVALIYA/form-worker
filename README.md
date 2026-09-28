@@ -231,6 +231,21 @@ Dependencies: [`worker-mailer`](https://github.com/zou-yu/worker-mailer) for SMT
 
 Submissions are personal data. Set each form's retention period to match the site's privacy policy, keep the dashboard behind Access or a strong password, and list Cloudflare (hosting and storage) and your email provider (delivery) as processors in that policy.
 
+## Uninstall
+
+Deleting the database deletes every submission, so export anything you need as CSV from the dashboard first. Then run these in order:
+
+```bash
+npx wrangler queues consumer remove form-worker-notifications form-worker
+npx wrangler delete --name form-worker
+npx wrangler queues delete form-worker-notifications
+npx wrangler d1 delete form-worker
+```
+
+The order matters. Cloudflare will not delete a Worker while it is a queue's consumer, and will not delete a queue while a Worker still sends to it.
+
+If you used the Deploy button, also delete the copy of this repository it created in your GitHub account. If you set up Cloudflare Access, remove the Access application under **Zero Trust → Access → Applications**.
+
 ## Contributing
 
 Bug reports, spam samples that slip through, and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
