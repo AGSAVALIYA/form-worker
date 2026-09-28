@@ -30,11 +30,14 @@
   "vars": {
     "SMTP_HOST": "smtp.gmail.com",
     "SMTP_PORT": "465",
-    "MAIL_FROM_NAME": "Form Worker",
-    // Cloudflare Access protection for /admin (recommended). Leave empty to use ADMIN_PASSWORD instead.
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "MAIL_FROM_NAME": "Form Worker"
   },
+
+  // Optional: to protect /admin with Cloudflare Access instead of ADMIN_PASSWORD, add
+  // ACCESS_TEAM_DOMAIN and ACCESS_AUD under Worker -> Settings -> Variables and Secrets.
+  // They are not listed in "vars" because the Deploy button would then require a value.
+  // keep_vars stops `wrangler deploy` from deleting variables added in the dashboard.
+  "keep_vars": true,
 
   "observability": { "enabled": true, "head_sampling_rate": 1 }
 }

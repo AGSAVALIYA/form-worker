@@ -62,12 +62,6 @@
       "MAIL_FROM_NAME": {
         "description": "Sender name shown on notification emails."
       },
-      "ACCESS_TEAM_DOMAIN": {
-        "description": "Optional. Your Cloudflare Access team domain, e.g. `yourteam.cloudflareaccess.com`, to protect the dashboard with Access instead of a password."
-      },
-      "ACCESS_AUD": {
-        "description": "Optional. The AUD tag of the Cloudflare Access application protecting this Worker."
-      },
       "DB": {
         "description": "D1 database for forms and entries. Created automatically."
       }

@@ -146,14 +146,17 @@ Thresholds are **Off**, **Relaxed** (70), **Balanced** (50, the default) and **S
 | --- | --- | --- |
 | `SMTP_HOST`, `SMTP_PORT` | `smtp.gmail.com`, `465` | Any SMTP server on port 465 (TLS) or 587 (STARTTLS). |
 | `MAIL_FROM_NAME` | `Form Worker` | Sender name on notification emails. |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | empty | Set both to protect the dashboard with Cloudflare Access. |
+
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are optional and not in `wrangler.jsonc`, so the Deploy button does not ask for them. Add them in the dashboard only if you use Cloudflare Access (below).
 
 ### Protect the dashboard with Cloudflare Access
 
 A password over HTTP Basic auth works, but [Cloudflare Access](https://developers.cloudflare.com/workers/configuration/cloudflare-access/) is stronger, with one-time codes by email or sign-in with Google or GitHub.
 
 1. Worker → **Settings → Domains & Routes** → enable **Cloudflare Access** and allow your email address.
-2. Copy the Access application's **AUD tag** and your team domain (`<team>.cloudflareaccess.com`) into `ACCESS_AUD` and `ACCESS_TEAM_DOMAIN`, then redeploy.
+2. Worker → **Settings → Variables and Secrets** → add `ACCESS_TEAM_DOMAIN` (your team domain, `<team>.cloudflareaccess.com`) and `ACCESS_AUD` (the Access application's **AUD tag**). Saving redeploys the Worker. `keep_vars` in `wrangler.jsonc` keeps them across later deploys.
+
+If the dashboard says it expects Cloudflare Access and you do not use Access, delete both variables and sign in with `ADMIN_PASSWORD`.
 
 The Worker then also verifies the token Access signs on every dashboard request, so a misconfigured route cannot expose the dashboard.
 
