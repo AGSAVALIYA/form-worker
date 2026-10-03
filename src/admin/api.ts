@@ -17,7 +17,7 @@ import {
 } from '../db';
 import { newApiKey, sha256Hex } from '../lib/crypto';
 import { HttpError, isEmail, json } from '../lib/http';
-import { notifyEntry, sendMail, smtpConfigured } from '../notify';
+import { notifyEntry, sendMail, senderEmail, smtpConfigured } from '../notify';
 
 const FORM_ID = /^[a-z0-9][a-z0-9-]{1,62}$/;
 const MAX_LIST = 20;
@@ -149,7 +149,7 @@ export async function handleAdminApi(
 
   // GET /me
   if (method === 'GET' && path === '/me') {
-    return json({ user: user.user, authMode: user.mode, smtpConfigured: smtpConfigured(env), smtpUser: env.SMTP_USER || null });
+    return json({ user: user.user, authMode: user.mode, smtpConfigured: smtpConfigured(env), smtpUser: env.SMTP_USER || null, mailFrom: smtpConfigured(env) ? senderEmail(env) : null });
   }
 
   // /forms

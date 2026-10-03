@@ -146,8 +146,9 @@ Thresholds are **Off**, **Relaxed** (70), **Balanced** (50, the default) and **S
 | --- | --- | --- |
 | `SMTP_HOST`, `SMTP_PORT` | `smtp.gmail.com`, `465` | Any SMTP server on port 465 (TLS) or 587 (STARTTLS). |
 | `MAIL_FROM_NAME` | `Form Worker` | Sender name on notification emails. |
+| `MAIL_FROM_EMAIL` | `SMTP_USER` | Optional. Sender address on notification emails. Needed when the SMTP username is not an email address (ZeptoMail, SendGrid, Amazon SES). The address must be verified with your provider. |
 
-`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are optional and not in `wrangler.jsonc`, so the Deploy button does not ask for them. Add them in the dashboard only if you use Cloudflare Access (below).
+`MAIL_FROM_EMAIL`, `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are optional and not in `wrangler.jsonc`, so the Deploy button does not ask for them. Add `MAIL_FROM_EMAIL` under Worker → **Settings → Variables and Secrets** (or to `vars`) if you need it. Add them in the dashboard only if you use Cloudflare Access (below).
 
 ### Protect the dashboard with Cloudflare Access
 
@@ -186,7 +187,7 @@ Known limitations:
 - **No file uploads.** File fields are ignored.
 - **Rule-based spam filter.** It catches the common junk that contact forms get, but it is not a trained classifier, and its phrase list is English. Check the Spam tab now and then, especially on Strict.
 - **No per-IP rate limiting.** Repeated submissions are scored as duplicates, and Turnstile is available for forms that are targeted.
-- **Gmail's "From" is always your Gmail address.** Gmail rewrites it; *Reply-To* still points at the person who submitted.
+- **Gmail's "From" is always your Gmail address** unless `MAIL_FROM_EMAIL` is one of the account's *Send mail as* addresses. Gmail rewrites anything else; *Reply-To* still points at the person who submitted.
 
 ## API
 

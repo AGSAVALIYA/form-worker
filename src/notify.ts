@@ -14,6 +14,19 @@ export function smtpConfigured(env: Env): boolean {
   return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
 }
 
+/** Optional variable: only set to send from an address other than SMTP_USER, so it may be missing from `Env`. */
+type OptionalSender = { MAIL_FROM_EMAIL?: string };
+
+/**
+ * The address notifications are sent from: MAIL_FROM_EMAIL when it is a valid
+ * address, otherwise SMTP_USER. Set MAIL_FROM_EMAIL for providers whose SMTP
+ * username is not an email address (ZeptoMail, SendGrid, Amazon SES, ...).
+ */
+export function senderEmail(env: Env): string {
+  const from = ((env as Env & OptionalSender).MAIL_FROM_EMAIL ?? '').trim();
+  return isEmail(from) ? from : env.SMTP_USER;
+}
+
 /** Sends one email through the configured SMTP server (Gmail by default). */
 export async function sendMail(env: Env, message: MailMessage): Promise<void> {
   const port = Number(env.SMTP_PORT || 465);
@@ -31,8 +44,8 @@ export async function sendMail(env: Env, message: MailMessage): Promise<void> {
       responseTimeoutMs: 15_000,
     },
     {
-      // Gmail always sends as the signed-in account, so "from" is SMTP_USER.
-      from: { name: env.MAIL_FROM_NAME || 'Form Worker', email: env.SMTP_USER },
+      // Gmail rewrites "from" to the signed-in account unless the address is one of its "Send mail as" aliases.
+      from: { name: env.MAIL_FROM_NAME || 'Form Worker', email: senderEmail(env) },
       to: message.to,
       reply: message.replyTo,
       subject: message.subject.replace(/[\r\n]+/g, ' ').slice(0, 200),

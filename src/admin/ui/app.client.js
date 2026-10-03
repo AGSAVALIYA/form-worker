@@ -518,7 +518,7 @@ function settingsView(form) {
     { class: 'panel' },
     h('h2', { text: 'Email notifications' }),
     state.me?.smtpConfigured
-      ? h('p', { class: 'muted', text: `Sent through SMTP as ${state.me.smtpUser}.` })
+      ? h('p', { class: 'muted', text: `Sent from ${state.me.mailFrom || state.me.smtpUser} through SMTP.` })
       : h('p', { class: 'notice', text: 'SMTP is not configured yet: set the SMTP_USER and SMTP_PASS secrets on the Worker.' }),
     field('st-test', 'Send a test to', testTo),
     sendTest,

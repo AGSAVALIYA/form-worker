@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // worker-mailer opens TCP sockets through the Workers runtime; not needed to build messages.
 vi.mock('worker-mailer', () => ({ WorkerMailer: {}, LogLevel: { ERROR: 3 } }));
 
-const { buildNotification } = await import('../src/notify');
+const { buildNotification, senderEmail } = await import('../src/notify');
 import type { Entry, Form } from '../src/db';
 
 const form: Form = {
@@ -65,5 +65,21 @@ describe('buildNotification', () => {
     const message = buildNotification(form, entry({ name: 'Sam' }), 'https://forms.example.com/admin#/forms/acme-bakery');
     expect(message.text).toContain('https://forms.example.com/admin#/forms/acme-bakery');
     expect(message.html).toContain('href="https://forms.example.com/admin#/forms/acme-bakery"');
+  });
+});
+
+describe('senderEmail', () => {
+  const env = (vars: Record<string, string>) => ({ SMTP_USER: 'me@example.com', ...vars }) as unknown as Env;
+
+  it('defaults to the SMTP username', () => {
+    expect(senderEmail(env({}))).toBe('me@example.com');
+  });
+
+  it('uses MAIL_FROM_EMAIL when set', () => {
+    expect(senderEmail(env({ SMTP_USER: 'emailapikey', MAIL_FROM_EMAIL: ' noreply@example.com ' }))).toBe('noreply@example.com');
+  });
+
+  it('ignores an invalid MAIL_FROM_EMAIL', () => {
+    expect(senderEmail(env({ MAIL_FROM_EMAIL: 'not an email' }))).toBe('me@example.com');
   });
 });

@@ -48,6 +48,9 @@
     "MAIL_FROM_NAME": "Form Worker"
   },
 
+  // Optional: add MAIL_FROM_EMAIL here or in the dashboard to send from an address other than
+  // SMTP_USER (required when the SMTP username is not an email address, e.g. ZeptoMail).
+
   // Optional: to protect /admin with Cloudflare Access instead of ADMIN_PASSWORD, add
   // ACCESS_TEAM_DOMAIN and ACCESS_AUD under Worker -> Settings -> Variables and Secrets.
   // They are not listed in "vars" because the Deploy button would then require a value.
